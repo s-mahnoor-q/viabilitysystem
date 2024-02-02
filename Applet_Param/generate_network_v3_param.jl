@@ -122,7 +122,7 @@ function create_new_network()
     if response == "y"
         println("Please enter the name of the file you would like to save to (e.g. net.jld2): ")
         filename = readline()
-        jldsave("C:/Users/smahn/JuliaScripts2/Pipeline/data/" * filename; problem)
+        jldsave(pwd() * "\\Applet_Param\\Networks\\" * filename; problem)
         println("File saved successfully!")
     elseif response == "n"
         println("File not saved.")
