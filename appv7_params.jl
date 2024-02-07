@@ -22,6 +22,8 @@ struct ODENetworkModel
     u₀::Array{Float64}
 end
 
+subs = Dict(1=>"₁", 2=>"₂", 3=>"₃", 4=>"₄", 5=>"₅", 6=>"₆", 7=>"₇", 8=>"₈", 9=>"₉", 0=>"₀")
+
 # create equations of motion
 function create_viability_model(odenetworkmodel::ODENetworkModel, u₀ = odenetworkmodel.u₀; return_eqs = false)
     #should be in place
@@ -76,7 +78,7 @@ function parameter_labels(num_nodes, p_matrix)
     for i in 1:size(p_matrix,1)
         for node in 1:num_nodes
             if p_matrix[i,node] != 0
-                labels[node] = labels[node] * "p$i"
+                labels[node] = labels[node] * "F$(subs[i])"
             end
         end
     end
@@ -86,17 +88,19 @@ end
 function create_UI(ODENetworkModel)
     resolution = 0.1; # has been removed to allow the trajectory to decide on step sizes.
     simulation_time = 50.0
+    text_size = 30.0; button_text_size = 22.0
     g = SimpleDiGraph(ODENetworkModel.num_nodes)
     fig = Figure(size = (1920, 1080))
+    block_height = 240
 
     ds = create_viability_model(ODENetworkModel)
 
     X, t = DynamicalSystems.trajectory(ds, 20.0; Δt = resolution)
 
-    network_and_init = fig[1,1] = GridLayout()
+    network = fig[1,1] = GridLayout()
 
     # create graph visualisation
-    ax1 = Axis(network_and_init[1,1], title = "$(ODENetworkModel.num_nodes) Node System", width = 250, height = 250, xrectzoom = false, yrectzoom = false)
+    ax1 = Axis(network[1,1], title = "$(ODENetworkModel.num_nodes) Node System", width = 250, height = block_height, xrectzoom = false, yrectzoom = false, titlesize = text_size)
     println("Created network...")
     edge_colours = []
     for i in 1:ODENetworkModel.num_nodes
@@ -111,9 +115,12 @@ function create_UI(ODENetworkModel)
         end
     end
     
+    
     p = graphplot!(ax1, g; edge_color = edge_colours,
         ilabels = [i for i in 1:ODENetworkModel.num_nodes], 
-        nlabels = parameter_labels(ODENetworkModel.num_nodes, ODENetworkModel.par_adj_matrix)
+        # nlabels = parameter_labels(ODENetworkModel.num_nodes, ODENetworkModel.par_adj_matrix),
+        curve_distance=0.5, curve_distance_usage=true,
+        node_size = 30.0
     )
     
     offsets = (p[:node_pos][]) * 0.2
@@ -137,38 +144,41 @@ function create_UI(ODENetworkModel)
     hidedecorations!(ax1)
 
     # create initial condition text boxes and rerun button
-    textboxes_frame = network_and_init[1,2] = GridLayout()
+    textboxes_frame = fig[2,2][1,1] = GridLayout()
     initial_conditions = []
-    Label(textboxes_frame[1,1], "Initial Conditions (Float64)", width = 150)
+    Label(textboxes_frame[1,1], "Initial Conditions", width = 150, fontsize = button_text_size)
     for i in 1:ODENetworkModel.num_nodes
         tb = Textbox(textboxes_frame[i+1,1], placeholder = "$(ODENetworkModel.u₀[i])", width = 100, validator = Float64)
         push!(initial_conditions, tb)
         tb.stored_string = ODENetworkModel.u₀[i]
     end
-    rerun_button = Button(textboxes_frame[ODENetworkModel.num_nodes + 2,1], label = "Rerun", width = 100)
+    rerun_button = Button(textboxes_frame[ODENetworkModel.num_nodes + 2,1], label = "Rerun", width = 100, fontsize = button_text_size)
 
-    rand_button = Button(textboxes_frame[ODENetworkModel.num_nodes + 3,1], label = "Random", width = 100)
+    rand_button = Button(textboxes_frame[ODENetworkModel.num_nodes + 3,1], label = "Random", width = 100, fontsize = button_text_size)
 
     timeseries_box = fig[1,2] = GridLayout()
-    timeseries = Axis(timeseries_box[1,1], title = "Time Series", width = 600, height = 250, xrectzoom = false, yrectzoom = false, limits = (nothing, (-0.1,1.2)))
-    colors = [RGBf(1, 0, 0), RGBf(1, 0.5, 0), RGBf(1, 1, 0), RGBf(0.5, 1, 0),
+    timeseries = Axis(timeseries_box[1,1], title = "Time Series", width = 600, height = block_height, xrectzoom = false, yrectzoom = false, limits = (nothing, (-0.1,1.2)),
+    titlesize = text_size)
+    colors = [RGBf(1, 0, 0), 
+    RGBf(0, 0, 1),  # FOR PRESENTATION PURPOSES
+    RGBf(1, 0.5, 0), RGBf(1, 1, 0), RGBf(0.5, 1, 0),
     RGBf(0, 1, 0), RGBf(0, 1, 0.5), RGBf(0, 1, 1), RGBf(0, 0.5, 1),
     RGBf(0, 0, 1), RGBf(0.5, 0, 1), RGBf(1, 0, 1), RGBf(1, 0, 0.5),
     RGBf(1, 0, 0), RGBf(1, 0.5, 0), RGBf(1, 1, 0)]
 
-    trajectory_box = fig[2,2] = GridLayout()
+    phase_space_box = fig[2,2][1,2] = GridLayout()
     axes = []
     if ODENetworkModel.num_nodes == 2
-        trajectory = Axis(trajectory_box[1,1], title = "Trajectory", width = 250, height = 250, limits = ((-0.1, 1.1), (-0.1, 1.1)))
+        trajectory = Axis(phase_space_box[1,1], title = "Phase Space", width = block_height, height = block_height, limits = ((-0.1, 1.1), (-0.1, 1.1)), titlesize = text_size)
         lines!(trajectory, X[:,1], X[:,2], color = :red)
         GLMakie.scatter!(trajectory, X[1,:], color = :red, markersize = 10, marker = :star6)
     else    
-        trajectory = Axis3(trajectory_box[1,1], title = "Trajectory", width = 250, height = 250, limits = ((-0.1, 1.1), (-0.1, 1.1), (-0.1, 1.1)))
+        trajectory = Axis3(phase_space_box[1,1], title = "Phase Space", width = block_height, height = block_height, limits = ((-0.1, 1.1), (-0.1, 1.1), (-0.1, 1.1)))
         axis_opts = trajectory_box[1,2] = GridLayout()
         variables = [i for i in 1:ODENetworkModel.num_nodes]
-        axis3d_1 = Menu(axis_opts[1,1], options = variables, default = 1, width = 100); Label(axis_opts[1,2], "x-axis", width = 75)
-        axis3d_2 = Menu(axis_opts[2,1], options = variables, default = 2, width = 100); Label(axis_opts[2,2], "y-axis", width = 75)
-        axis3d_3 = Menu(axis_opts[3,1], options = variables, default = 3, width = 100); Label(axis_opts[3,2], "z-axis", width = 75)
+        axis3d_1 = Menu(axis_opts[1,1], options = variables, default = 1, width = 100); Label(axis_opts[1,2], "x-axis", width = 75, fontsize = text_size)
+        axis3d_2 = Menu(axis_opts[2,1], options = variables, default = 2, width = 100); Label(axis_opts[2,2], "y-axis", width = 75, fontsize = text_size)
+        axis3d_3 = Menu(axis_opts[3,1], options = variables, default = 3, width = 100); Label(axis_opts[3,2], "z-axis", width = 75, fontsize = text_size)
         GLMakie.scatter!(trajectory, X[1,1], X[1,2], X[1,3], color = :red, markersize = 10, marker = :star6)
         axes = [axis3d_1, axis3d_2, axis3d_3]
     end
@@ -197,7 +207,7 @@ function create_UI(ODENetworkModel)
     function plot_timeseries(X, t)
         empty!(timeseries)
         lins = [lines!(timeseries, t, X[:,i]; color = colors[i % 15 + 1], label = "var $i") for i in 1:ODENetworkModel.num_nodes]
-        Legend(timeseries_box[1,2], lins, ["Process $i" for i in 1:ODENetworkModel.num_nodes]; margin = (10, 10, 10, 10), halign = :right, valign = :top)
+        Legend(timeseries_box[1,2], lins, ["Process $i" for i in 1:ODENetworkModel.num_nodes]; margin = (10, 10, 10, 10), halign = :right, valign = :top, labelsize = 15.0)
     end
 
     on(rerun_button.clicks) do x
@@ -237,8 +247,8 @@ function create_UI(ODENetworkModel)
     slider_box = fig[2,1] = GridLayout()
     for i in 1:length(ODENetworkModel.parameters)
         slider = Slider(slider_box[i,2], range = ODENetworkModel.p_start:0.01:ODENetworkModel.p_end, startvalue = ODENetworkModel.parameters[i], width = 300)
-        lbl = Label(slider_box[i,3], "p$i", width = 75)
-        value = Label(slider_box[i,1], "$(slider.value[])", width = 75)
+        lbl = Label(slider_box[i,3], "F$(subs[i])", fontsize = text_size)
+        value = Label(slider_box[i,1], "$(slider.value[])", fontsize = text_size)
         push!(sliders, slider.value)
         push!(sliders_lbl, value)
     end
@@ -339,7 +349,7 @@ function create_bifurcation_diagram(ODENetworkModel)
     # and for high F there MAY be an eq near [1 1 ... 0]
     # so we will use this for the continuation
     fig = Figure()
-    ax = Axis(fig[1,1], title = "Viability Bifurcation Diagram")
+    ax = Axis(fig[1,1], title = "Viability Bifurcation Diagram", titlesize = text_size)
     model = create_viability_model(ODENetworkModel; return_eqs = true)
     println("Created model...")
 
@@ -368,33 +378,34 @@ function main()
         @warn "pwd() is not in the correct directory. Please change to '.../viabilitysystem' using cd() and try again."
     end
     
-    println("Welcome to the Viability System Applet! Please enter the name of your problem file located in /Networks (e.g. 'two_node_params.jld2'):")
-    invalid = true
+    println("Welcome to the Viability System Applet! Please enter the name of your problem file located in /Networks_param (e.g. 'two_node_params.jld2'):")
+    invalid = true; file = ""
     while invalid 
         try
             file = readline()
-            directory = pwd() * "\\Applet_Param\\Networks\\" * file
+            directory = pwd() * "\\Networks_param\\" * file
             # println(directory)
             @load directory problem
             invalid = false
         catch y
+            if file == "^C"
+                println("Program terminated.")
+                break
+            end
             println("File not found. Please try again and enter a valid file name:")
             continue
         end
+    end
+
+    if invalid 
+        return
     end
     
     println("Program starting...")
     println(problem)
     create_UI(problem)
 
-    # create_basins_2d(problem, 0.01, 0.87)
-end
-
-main()
-    println(problem)
-    # create_UI(problem)
-
-    create_basins_2d(problem, 0.01, 0.87)
+    # create_basins_2d(problem, 0.01, 0.95)
 end
 
 main()
