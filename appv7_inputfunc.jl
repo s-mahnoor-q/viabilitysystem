@@ -338,44 +338,6 @@ function create_attractors(ODENetworkModel)
     return attractors
 end
 
-function create_branch(model!, ax, u0, par, opts_br, p_index)
-	prob = BifurcationProblem(model!, u0, par,
-		# specify the continuation parameter
-		(@lens _[p_index]), record_from_solution = recordFromSolution)
-
-    br = BifurcationKit.continuation(prob, PALC(), opts_br; verbosity = 3, bothside = true)
-
-    println(br)
-
-	BifurcationKit.plot!(ax, br)
-end
-
-function create_bifurcation_diagram(ODENetworkModel)
-    # we know that for low F, there will be eq near [0 0 ... 0]
-    # and for high F there MAY be an eq near [1 1 ... 0]
-    # so we will use this for the continuation
-    fig = Figure()
-    ax = Axis(fig[1,1], title = "Viability Bifurcation Diagram")
-    model = create_viability_model(ODENetworkModel; return_eqs = true)
-    println("Created model...")
-
-    opts_br = ContinuationPar(p_min = ODENetworkModel.p_start, p_max = ODENetworkModel.p_end, dsmax = 0.05,
-		# options to detect bifurcations
-		detect_bifurcation = 3, n_inversion = 8, max_bisection_steps = 25,
-		# maximum number of continuation steps
-		max_steps = 5000,)
-
-        opts_br2 = ContinuationPar(p_min = ODENetworkModel.p_start, p_max = ODENetworkModel.p_end, ds = -0.01, dsmax = 0.01,
-		# options to detect bifurcations
-		detect_bifurcation = 3, n_inversion = 8, max_bisection_steps = 100,
-		# maximum number of continuation steps
-		max_steps = 5000,)
-
-    create_branch(model, ax, zeros(ODENetworkModel.num_nodes),  ODENetworkModel.parameters, opts_br, ODENetworkModel.p_index)
-	create_branch(model, ax, ones(ODENetworkModel.num_nodes),  ODENetworkModel.parameters, opts_br2, ODENetworkModel.p_index)
-
-    display(fig)
-end
 
 function main()
     problem = nothing
